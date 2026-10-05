@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use Boundless, please cite the paper below."
+title: "Boundless"
+repository-code: "https://github.com/mkturkcan/boundless"
+license: MIT
+authors:
+  - family-names: Turkcan
+    given-names: Mehmet Kerem
+  - family-names: Li
+    given-names: Yuyang
+  - family-names: Zang
+    given-names: Chengbo
+  - family-names: Ghaderi
+    given-names: Javad
+  - family-names: Zussman
+    given-names: Gil
+  - family-names: Kostic
+    given-names: Zoran
+preferred-citation:
+  type: article
+  title: "Boundless: Generating Photorealistic Synthetic Data for Object Detection in Urban Streetscapes"
+  authors:
+    - family-names: Turkcan
+      given-names: Mehmet Kerem
+    - family-names: Li
+      given-names: Yuyang
+    - family-names: Zang
+      given-names: Chengbo
+    - family-names: Ghaderi
+      given-names: Javad
+    - family-names: Zussman
+      given-names: Gil
+    - family-names: Kostic
+      given-names: Zoran
+  journal: "arXiv preprint arXiv:2409.03022"
+  year: 2024
+  url: "https://arxiv.org/abs/2409.03022"

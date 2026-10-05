@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boundless"
+version = "1.0.0"
+description = "Python API for Boundless, a photorealistic synthetic data generator for object detection in urban streetscapes"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Mehmet Kerem Turkcan", email = "mehmetkeremturkcan@gmail.com" }]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["synthetic data", "object detection", "3d bounding boxes", "unreal engine", "smart cities", "simulation"]
+
+[project.optional-dependencies]
+tools = ["numpy", "Pillow"]
+
+[project.urls]
+Paper = "https://arxiv.org/abs/2409.03022"
+Repository = "https://github.com/mkturkcan/boundless"
+
+[tool.setuptools]
+packages = ["boundless"]
