@@ -122,10 +122,17 @@ h2 {
 .lede { margin: 26px 0 0; max-width: 62ch; color: var(--muted); font-size: 18px; }
 .lede strong { color: var(--text); font-weight: 500; }
 .split { display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(40px, 6vw, 96px); align-items: end; }
-.result { border-left: 1px solid var(--line-strong); padding-left: clamp(24px, 3vw, 40px); }
-.result .num { font-size: clamp(64px, 8vw, 112px); font-weight: 600; letter-spacing: -0.05em; line-height: 0.9; }
-.result .num span { color: var(--amber); font-size: 0.42em; letter-spacing: -0.02em; margin-left: 0.12em; }
-.result p { margin: 18px 0 0; color: var(--muted); max-width: 34ch; }
+.try {
+  position: relative; overflow: hidden; border-radius: 20px; padding: clamp(28px, 3vw, 40px);
+  background: linear-gradient(160deg, rgba(255, 181, 71, 0.10), rgba(111, 227, 255, 0.04) 60%), var(--surface);
+  border: 1px solid var(--line-strong);
+}
+.try h3 { margin: 0; font-size: clamp(30px, 3vw, 40px); font-weight: 600; letter-spacing: -0.035em; line-height: 1; }
+.try p { margin: 14px 0 0; color: var(--muted); font-size: 16px; max-width: 38ch; }
+.try .actions { margin-top: 26px; }
+.try small { display: block; margin-top: 20px; font-size: 13px; color: var(--faint); }
+.btn.amber { background: var(--amber); color: #1a1206; border-color: var(--amber); }
+.btn.amber:hover { background: #ffc46b; }
 
 figure { margin: 0; }
 figcaption { margin-top: 14px; font-size: 14px; color: var(--faint); }
@@ -212,7 +219,6 @@ footer p { margin: 0 0 6px; max-width: 70ch; }
 
 @media (max-width: 900px) {
   .split, .gt, .code-grid, .datasets { grid-template-columns: 1fr; }
-  .result { border-left: 0; padding-left: 0; border-top: 1px solid var(--line-strong); padding-top: 28px; }
   .mosaic { grid-template-columns: 1fr 1fr; }
   .mosaic .a { grid-column: span 2; grid-row: auto; }
   .mosaic .a img { aspect-ratio: 16 / 9; }
@@ -269,11 +275,19 @@ footer p { margin: 0 0 6px; max-width: 70ch; }
     <div class="wrap split">
       <div>
         <h2>Training data for cameras mounted above the street</h2>
-        <p class="lede">Detectors on traffic poles and building facades look down at dense, heavily occluded scenes that driving datasets rarely cover, and labeling that footage by hand is slow and inconsistent. Boundless generates it instead. It is built on the Unreal Engine 5 City Sample, places cameras where a city would mount them, changes lighting, weather and traffic between shots, and computes every label from the simulation state.</p>
+        <p class="lede">Detectors on traffic poles and building facades look down at dense, heavily occluded scenes that driving datasets rarely cover, and labeling that footage by hand is slow and inconsistent. Boundless generates it instead. It is built on the Unreal Engine 5 City Sample, places cameras where a city would mount them, changes lighting, weather and traffic between shots, and computes every label from the simulation state. Detectors trained on Boundless data and evaluated on real imagery from medium-altitude cameras outperform detectors trained on CARLA-generated data by <strong>7.8&nbsp;mAP</strong>.</p>
       </div>
-      <div class="result">
-        <div class="num">+7.8<span>mAP</span></div>
-        <p>over detectors trained on CARLA-generated data, evaluated on real imagery from medium-altitude cameras.</p>
+      <div class="try">
+        <h3>Try it</h3>
+        <p>Download the simulator, start it in API mode and capture your first labeled 4K frame from Python in a few minutes, or start training right away on the released dataset.</p>
+        <div class="actions">
+          <a class="btn amber" href="https://huggingface.co/mehmetkeremturkcan/boundless-simulator">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8M4.5 6.5L8 10l3.5-3.5M3 13h10"/></svg>
+            Download the simulator
+          </a>
+          <a class="btn" href="https://huggingface.co/datasets/mehmetkeremturkcan/boundless-bigcity-4k">Get the dataset</a>
+        </div>
+        <small>Windows 10 or 11 with an NVIDIA RTX GPU. The simulator is a 22&nbsp;GB download.</small>
       </div>
     </div>
   </section>
