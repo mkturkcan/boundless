@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boundless</title>
+<meta name="description" content="Photorealistic synthetic data for object detection in urban streetscapes, with exact 2D and 3D ground truth for every vehicle and pedestrian.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Boundless">
+<meta property="og:description" content="Photorealistic synthetic data for object detection in urban streetscapes, with exact 2D and 3D ground truth.">
+<meta property="og:url" content="https://mkturkcan.github.io/boundless/">
+<meta property="og:image" content="https://mkturkcan.github.io/boundless/media/social_preview.jpg">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mkturkcan.github.io/boundless/media/social_preview.jpg">
+<meta name="theme-color" content="#0a0b0d">
+<link rel="icon" href="media/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0b0d;
+  --surface: #111317;
+  --surface-2: #171a1f;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --text: #ecebe8;
+  --muted: #9b9ca3;
+  --faint: #6c6e76;
+  --amber: #ffb547;
+  --cyan: #6fe3ff;
+  --radius: 14px;
+  --gutter: clamp(16px, 4vw, 48px);
+  --max: 1200px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 17px/1.65 "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+img { display: block; max-width: 100%; height: auto; }
+a { color: inherit; }
+code, pre { font-family: "Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
+
+.wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+.split > *, .gt > *, .code-grid > *, .datasets > *, .cite { min-width: 0; }
+
+/* Navigation */
+.nav {
+  position: absolute; inset: 0 0 auto 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px var(--gutter);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+.brand svg { width: 22px; height: 22px; }
+.nav nav { display: flex; gap: 28px; font-size: 15px; }
+.nav nav a { text-decoration: none; color: rgba(236, 235, 232, 0.78); transition: color .2s; }
+.nav nav a:hover { color: #fff; }
+
+/* Header */
+.hero {
+  position: relative; height: min(100svh, 1080px); min-height: 620px;
+  overflow: hidden; isolation: isolate; cursor: crosshair;
+}
+.hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hero .boxes {
+  -webkit-mask-image: radial-gradient(circle var(--r, 240px) at var(--x, 62%) var(--y, 55%), #000 55%, transparent 100%);
+          mask-image: radial-gradient(circle var(--r, 240px) at var(--x, 62%) var(--y, 55%), #000 55%, transparent 100%);
+}
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(10, 11, 13, 0.55) 0%, rgba(10, 11, 13, 0) 22%),
+    linear-gradient(0deg, var(--bg) 0%, rgba(10, 11, 13, 0.82) 18%, rgba(10, 11, 13, 0) 52%),
+    linear-gradient(90deg, rgba(10, 11, 13, 0.7) 0%, rgba(10, 11, 13, 0) 55%);
+}
+.hero-copy {
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: clamp(40px, 9vh, 96px);
+  pointer-events: none;
+}
+.hero-copy > .wrap > * { pointer-events: auto; }
+.hero h1 {
+  margin: 0; font-weight: 600; letter-spacing: -0.045em; line-height: 0.92;
+  font-size: clamp(64px, 12vw, 168px);
+}
+.hero-copy p {
+  margin: 22px 0 0; max-width: 34ch; color: rgba(236, 235, 232, 0.86);
+  font-size: clamp(18px, 2vw, 22px); line-height: 1.45; letter-spacing: -0.01em;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 20px;
+  border-radius: 999px; font-size: 15px; font-weight: 500; text-decoration: none;
+  border: 1px solid var(--line-strong); background: rgba(17, 19, 23, 0.6);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  transition: background .2s, border-color .2s;
+}
+.btn:hover { background: rgba(40, 43, 50, 0.8); border-color: rgba(255, 255, 255, 0.3); }
+.btn.primary { background: var(--text); color: #0a0b0d; border-color: var(--text); }
+.btn.primary:hover { background: #fff; }
+.btn svg { width: 16px; height: 16px; }
+.hero-note {
+  position: absolute; z-index: 2; right: var(--gutter); bottom: clamp(40px, 9vh, 96px);
+  max-width: 260px; text-align: right; font-size: 13px; line-height: 1.5; color: var(--faint);
+}
+
+/* Sections */
+section { padding: clamp(80px, 12vw, 150px) 0 0; }
+h2 {
+  margin: 0; font-weight: 600; letter-spacing: -0.035em; line-height: 1.05;
+  font-size: clamp(34px, 4.6vw, 56px); max-width: 18ch;
+}
+.lede { margin: 26px 0 0; max-width: 62ch; color: var(--muted); font-size: 18px; }
+.lede strong { color: var(--text); font-weight: 500; }
+.split { display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(40px, 6vw, 96px); align-items: end; }
+.result { border-left: 1px solid var(--line-strong); padding-left: clamp(24px, 3vw, 40px); }
+.result .num { font-size: clamp(64px, 8vw, 112px); font-weight: 600; letter-spacing: -0.05em; line-height: 0.9; }
+.result .num span { color: var(--amber); font-size: 0.42em; letter-spacing: -0.02em; margin-left: 0.12em; }
+.result p { margin: 18px 0 0; color: var(--muted); max-width: 34ch; }
+
+figure { margin: 0; }
+figcaption { margin-top: 14px; font-size: 14px; color: var(--faint); }
+.frame { border-radius: var(--radius); overflow: hidden; background: var(--surface); border: 1px solid var(--line); }
+.mt { margin-top: clamp(36px, 5vw, 64px); }
+
+/* Condition viewer */
+.viewer { position: relative; aspect-ratio: 16 / 9; }
+.viewer img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .9s ease; }
+.viewer img.on { opacity: 1; }
+.viewer-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.seg { display: inline-flex; padding: 4px; gap: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); }
+.seg button {
+  font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer;
+  height: 34px; padding: 0 16px; border-radius: 999px; transition: background .2s, color .2s;
+}
+.seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.viewer-bar small { font-size: 14px; color: var(--faint); }
+
+/* Ground truth */
+.gt { display: grid; grid-template-columns: 1.15fr 1fr; gap: clamp(24px, 3vw, 40px); align-items: stretch; }
+.gt .frame img { width: 100%; height: 100%; object-fit: cover; }
+pre {
+  margin: 0; padding: 22px 24px; overflow: auto; font-size: 13px; line-height: 1.7;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); color: #c9cad0;
+}
+pre .k { color: #e8e8ec; }
+pre .s { color: var(--cyan); }
+pre .n { color: var(--amber); }
+pre .c { color: var(--faint); }
+
+/* Mosaic */
+.mosaic { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.mosaic figure { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface); }
+.mosaic img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 16 / 9; transition: transform 1.2s cubic-bezier(.2, .7, .2, 1); }
+.mosaic figure:hover img { transform: scale(1.03); }
+.mosaic .a { grid-column: span 4; grid-row: span 2; }
+.mosaic .a img { aspect-ratio: auto; }
+.mosaic .b, .mosaic .c { grid-column: span 2; }
+.mosaic .d, .mosaic .e { grid-column: span 3; }
+.mosaic figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 28px 14px 10px;
+  font-size: 13px; color: rgba(236, 235, 232, 0.8);
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+}
+
+/* Code */
+.code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 3vw, 40px); }
+.label { font-size: 14px; color: var(--faint); margin: 0 0 12px; }
+
+/* Datasets */
+.datasets { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 2vw, 24px); }
+.card {
+  display: flex; flex-direction: column; border-radius: var(--radius); overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line); text-decoration: none;
+  transition: border-color .25s, transform .25s;
+}
+.card:hover { border-color: var(--line-strong); transform: translateY(-2px); }
+.card img { aspect-ratio: 16 / 8; object-fit: cover; width: 100%; }
+.card .body { padding: 26px 28px 28px; display: flex; flex-direction: column; flex: 1; }
+.card h3 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.card p { margin: 10px 0 0; color: var(--muted); font-size: 16px; }
+.card table { margin-top: 22px; width: 100%; border-collapse: collapse; font-size: 15px; }
+.card td { padding: 10px 0; border-top: 1px solid var(--line); }
+.card td:last-child { text-align: right; font-family: "Geist Mono", monospace; font-size: 14px; color: var(--text); }
+.card td:first-child { color: var(--muted); }
+.card .go { margin-top: auto; padding-top: 22px; font-size: 15px; color: var(--text); }
+.card .go svg { width: 14px; height: 14px; vertical-align: -2px; margin-left: 4px; transition: transform .2s; }
+.card:hover .go svg { transform: translateX(3px); }
+
+/* Citation */
+.cite { position: relative; }
+.copy {
+  position: absolute; top: 12px; right: 12px; font: inherit; font-size: 13px; cursor: pointer;
+  color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px;
+}
+.copy:hover { color: var(--text); border-color: var(--line-strong); }
+
+footer { margin-top: clamp(96px, 12vw, 160px); border-top: 1px solid var(--line); padding: 40px 0 56px; color: var(--faint); font-size: 14px; }
+footer .row { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--text); }
+footer p { margin: 0 0 6px; max-width: 70ch; }
+
+@media (max-width: 900px) {
+  .split, .gt, .code-grid, .datasets { grid-template-columns: 1fr; }
+  .result { border-left: 0; padding-left: 0; border-top: 1px solid var(--line-strong); padding-top: 28px; }
+  .mosaic { grid-template-columns: 1fr 1fr; }
+  .mosaic .a { grid-column: span 2; grid-row: auto; }
+  .mosaic .a img { aspect-ratio: 16 / 9; }
+  .mosaic .b, .mosaic .c, .mosaic .d, .mosaic .e { grid-column: span 1; }
+  .hero-note { display: none; }
+}
+@media (max-width: 640px) {
+  .nav nav { gap: 18px; font-size: 14px; }
+  .nav nav a.hide-sm { display: none; }
+  .hero { min-height: 560px; }
+  .hero img { object-position: 58% 50%; }
+  pre { font-size: 12px; padding: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero" id="hero">
+  <div class="nav">
+    <a class="brand" href="#" aria-label="Boundless home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8" opacity=".55"/></svg>
+      Boundless
+    </a>
+    <nav aria-label="Primary">
+      <a class="hide-sm" href="#ground-truth">Ground truth</a>
+      <a class="hide-sm" href="#datasets">Datasets</a>
+      <a href="https://arxiv.org/abs/2409.03022">Paper</a>
+      <a href="https://github.com/mkturkcan/boundless">GitHub</a>
+    </nav>
+  </div>
+  <img src="media/hero.jpg" width="2560" height="1440" alt="A street canyon at night in Boundless, with wet asphalt, traffic and lit storefronts" fetchpriority="high">
+  <img class="boxes" src="media/hero_boxes.png" width="2560" height="1440" alt="" aria-hidden="true">
+  <div class="hero-copy">
+    <div class="wrap">
+      <h1>Boundless</h1>
+      <p>Photorealistic synthetic data for object detection in urban streetscapes, with exact 2D and 3D ground truth for every vehicle and pedestrian.</p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/mkturkcan/boundless">
+          <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Get the code
+        </a>
+        <a class="btn" href="https://arxiv.org/abs/2409.03022">Read the paper</a>
+      </div>
+    </div>
+  </div>
+  <p class="hero-note">Frame 007593 of Boundless Big City 4K. Move the pointer over the image to see its 3D ground truth.</p>
+</header>
+
+<main>
+  <section>
+    <div class="wrap split">
+      <div>
+        <h2>Training data for cameras mounted above the street</h2>
+        <p class="lede">Detectors on traffic poles and building facades look down at dense, heavily occluded scenes that driving datasets rarely cover, and labeling that footage by hand is slow and inconsistent. Boundless generates it instead. It is built on the Unreal Engine 5 City Sample, places cameras where a city would mount them, changes lighting, weather and traffic between shots, and computes every label from the simulation state.</p>
+      </div>
+      <div class="result">
+        <div class="num">+7.8<span>mAP</span></div>
+        <p>over detectors trained on CARLA-generated data, evaluated on real imagery from medium-altitude cameras.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="conditions">
+    <div class="wrap">
+      <h2>One camera, a new scene every round</h2>
+      <p class="lede">Collection runs site by site. At each intersection Boundless places up to sixteen cameras and captures them over several rounds. Every round draws a new sun position, sky, exposure and weather, and re-spawns moving traffic, parked vehicles and pedestrians at new densities, so no viewpoint is captured twice with the same scene. A capture starts only after every agent in view has finished loading.</p>
+      <figure class="mt">
+        <div class="frame viewer" id="viewer">
+          <img class="on" src="media/cam_night.jpg" width="1920" height="1080" alt="A mid-block camera at night" loading="lazy">
+          <img src="media/cam_sun.jpg" width="1920" height="1080" alt="The same camera in direct sun with new traffic" loading="lazy">
+          <img src="media/cam_snow.jpg" width="1920" height="1080" alt="The same camera after snowfall with new traffic" loading="lazy">
+        </div>
+        <div class="viewer-bar">
+          <div class="seg" role="group" aria-label="Condition">
+            <button type="button" aria-pressed="true" data-i="0">Night</button>
+            <button type="button" aria-pressed="false" data-i="1">Sun</button>
+            <button type="button" aria-pressed="false" data-i="2">Snow</button>
+          </div>
+          <small>One mid-block camera in three rounds of the Big City 4K collection.</small>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <section id="ground-truth">
+    <div class="wrap">
+      <h2>Labels from the simulation, not from annotators</h2>
+      <p class="lede">Each object carries an oriented 3D box with its eight corners in world, camera and image coordinates, the projected and visible 2D boxes, truncation, and a visible fraction measured against the depth buffer. Every frame stores the camera intrinsics and world-to-camera extrinsics. Objects are labeled out to 2&nbsp;km, so traffic at the far end of a street canyon is included whenever a few of its pixels are visible.</p>
+      <div class="gt mt">
+        <figure class="frame">
+          <img src="media/detail_4k_crop.jpg" alt="A 1:1 crop of a 4K frame with oriented 3D boxes on vehicles and pedestrians" loading="lazy">
+        </figure>
+<pre aria-label="Excerpt of a label file"><code><span class="c">// labels/001335.json, one object</span>
+{
+  <span class="k">"label"</span>: <span class="s">"car"</span>,
+  <span class="k">"parked"</span>: <span class="n">false</span>,
+  <span class="k">"distance_m"</span>: <span class="n">33.26</span>,
+  <span class="k">"center"</span>: [<span class="n">31334.47</span>, <span class="n">-253787.93</span>, <span class="n">151.93</span>],
+  <span class="k">"extent"</span>: [<span class="n">239.44</span>, <span class="n">105.5</span>, <span class="n">87.58</span>],
+  <span class="k">"rotation"</span>: [<span class="n">0.39</span>, <span class="n">118.5</span>, <span class="n">0.9</span>],
+  <span class="k">"corners_camera"</span>: [[<span class="n">-8.07</span>, <span class="n">-5.86</span>, <span class="n">34.50</span>], <span class="c">...</span>],
+  <span class="k">"corners_image"</span>: [[<span class="n">1396.55</span>, <span class="n">700.24</span>], <span class="c">...</span>],
+  <span class="k">"bbox_2d"</span>: [<span class="n">1237.83</span>, <span class="n">588.42</span>, <span class="n">1458.64</span>, <span class="n">827.44</span>],
+  <span class="k">"bbox_2d_visible"</span>: [<span class="n">1240</span>, <span class="n">588.42</span>, <span class="n">1456</span>, <span class="n">826</span>],
+  <span class="k">"truncation"</span>: <span class="n">0.0</span>,
+  <span class="k">"visible_fraction"</span>: <span class="n">1.0</span>,
+  <span class="k">"occlusion"</span>: <span class="n">0</span>
+}</code></pre>
+      </div>
+      <p class="lede">The format, coordinate conventions and corner order are documented in the <a href="https://github.com/mkturkcan/boundless/blob/main/docs/annotations.md">annotation reference</a>. Exporters for COCO and YOLO ship with the Python package.</p>
+    </div>
+  </section>
+
+  <section id="cameras">
+    <div class="wrap">
+      <h2>Cameras where cities put them</h2>
+      <p class="lede">Poses come from the road network: traffic signal and street light poles at intersections and mid-block, second and third floor facade windows, and freeway gantries. Each pose is tested against the scene geometry and rejected when the view is blocked, too close to a surface or mostly sky.</p>
+      <figure class="mt">
+        <div class="frame"><img src="media/camera_types.jpg" alt="Intersection pole, mid-block pole, facade and freeway cameras" loading="lazy"></div>
+        <figcaption>Automatically placed intersection pole, mid-block pole, facade and freeway cameras.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="mosaic">
+        <figure class="a"><img src="media/f_008689.jpg" alt="Pedestrians on a crosswalk at night in the rain" loading="lazy"><figcaption>Night rain, intersection pole</figcaption></figure>
+        <figure class="b"><img src="media/f_001636.jpg" alt="An avenue at dusk with lit office towers" loading="lazy"><figcaption>Dusk</figcaption></figure>
+        <figure class="c"><img src="media/f_007291.jpg" alt="An intersection in low evening sun" loading="lazy"><figcaption>Low sun</figcaption></figure>
+        <figure class="d"><img src="media/f_002624.jpg" alt="An intersection covered in snow" loading="lazy"><figcaption>Snow cover</figcaption></figure>
+        <figure class="e"><img src="media/f_008186.jpg" alt="A truck on an elevated freeway in the rain" loading="lazy"><figcaption>Rain, freeway gantry</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="generate">
+    <div class="wrap">
+      <h2>Generate your own</h2>
+      <p class="lede">The simulator ships as a Windows application. The Python client drives it over TCP and depends only on the standard library. The script that produced the released dataset runs unattended at about 1,500 frames per hour at 4K on an RTX&nbsp;4080, resumes after interruptions and restarts the simulator on its own.</p>
+      <div class="code-grid mt">
+        <div>
+          <p class="label">Reproduce Boundless Big City 4K</p>
+<pre><code>python examples/collect_dataset.py \
+    --out C:/data/boundless_bigcity_4k \
+    --target 10000 \
+    --launch C:/Boundless/Boundless.exe
+
+python tools/finalize_dataset.py \
+    C:/data/boundless_bigcity_4k</code></pre>
+        </div>
+        <div>
+          <p class="label">Drive the simulator from Python</p>
+<pre><code><span class="k">from</span> boundless <span class="k">import</span> Client
+
+<span class="k">with</span> Client(<span class="s">"127.0.0.1"</span>, <span class="n">2000</span>) <span class="k">as</span> client:
+    client.wait_until_ready()
+    client.set_lighting(sun_elevation=<span class="n">12</span>, sun_azimuth=<span class="n">250</span>)
+    client.set_weather(rain=<span class="n">0.4</span>)
+    client.set_density(traffic=<span class="n">1.2</span>, respawn=<span class="n">True</span>)
+    pose = client.sample_camera_poses(n=<span class="n">1</span>, kinds=[<span class="s">"intersection"</span>])[<span class="n">0</span>]
+    client.set_camera(pose)
+    client.wait_until_settled()
+    shot = client.capture(output_dir=<span class="s">"C:/data/demo"</span>)</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="datasets">
+    <div class="wrap">
+      <h2>Datasets</h2>
+      <p class="lede">Both datasets are hosted on Hugging Face.</p>
+      <div class="datasets mt">
+        <a class="card" href="https://huggingface.co/datasets/mehmetkeremturkcan/boundless-bigcity-4k">
+          <img src="media/cam_sun.jpg" alt="" loading="lazy">
+          <div class="body">
+            <h3>Boundless Big City 4K</h3>
+            <p>Infrastructure camera views of the Big City map at 3840&times;2160 across sunny, low sun, overcast, rain, snow, dusk, night and night rain conditions, with full 2D and 3D labels.</p>
+            <table>
+              <tr><td>Frames</td><td>10,000</td></tr>
+              <tr><td>Camera poses</td><td>3,332 at 211 sites</td></tr>
+              <tr><td>Labeled objects</td><td>467,619</td></tr>
+            </table>
+            <span class="go">Open on Hugging Face<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span>
+          </div>
+        </a>
+        <a class="card" href="https://huggingface.co/datasets/mehmetkeremturkcan/boundless-i2x">
+          <img src="media/i2x.jpg" alt="" loading="lazy">
+          <div class="body">
+            <h3>Boundless I2X</h3>
+            <p>Top-down intersection views at 832&times;832 in the format of the <span style="white-space:nowrap">Constellation</span> dataset, whose real test set serves as the validation split for synthetic-to-real evaluation.</p>
+            <table>
+              <tr><td>Synthetic training frames</td><td>16,698</td></tr>
+              <tr><td>Real validation frames</td><td>3,084</td></tr>
+              <tr><td>Labeled objects</td><td>218,011</td></tr>
+            </table>
+            <span class="go">Open on Hugging Face<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg></span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section id="citation">
+    <div class="wrap">
+      <h2>Citation</h2>
+      <div class="cite mt">
+        <button class="copy" type="button" id="copy">Copy</button>
+<pre id="bibtex"><code>@article{turkcan2024boundless,
+  title   = {Boundless: Generating Photorealistic Synthetic Data for Object Detection in Urban Streetscapes},
+  author  = {Turkcan, Mehmet Kerem and Li, Yuyang and Zang, Chengbo and Ghaderi, Javad and Zussman, Gil and Kostic, Zoran},
+  journal = {arXiv preprint arXiv:2409.03022},
+  year    = {2024}
+}</code></pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap row">
+    <div>
+      <p>Mehmet Kerem Turkcan, Yuyang Li, Chengbo Zang, Javad Ghaderi, Gil Zussman and Zoran Kostic, <a href="https://www.aidl.ee.columbia.edu/">AIDL Lab</a>, Columbia University.</p>
+      <p>The Python API is released under the MIT License. The simulator is built with Unreal Engine; Unreal and Unreal Engine are trademarks or registered trademarks of Epic Games, Inc.</p>
+    </div>
+    <div>
+      <a href="https://github.com/mkturkcan/boundless">GitHub</a>&emsp;<a href="https://arxiv.org/abs/2409.03022">arXiv</a>&emsp;<a href="https://huggingface.co/mehmetkeremturkcan/boundless-simulator">Simulator</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Header: reveal the 3D ground truth under the pointer; drift slowly until the visitor interacts.
+  var hero = document.getElementById("hero");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var touched = false, t0 = performance.now();
+  function place(x, y) { hero.style.setProperty("--x", x + "px"); hero.style.setProperty("--y", y + "px"); }
+  hero.addEventListener("pointermove", function (e) {
+    touched = true;
+    var r = hero.getBoundingClientRect();
+    place(e.clientX - r.left, e.clientY - r.top);
+  });
+  function drift(now) {
+    if (touched) return;
+    var r = hero.getBoundingClientRect(), t = (now - t0) / 1000;
+    place(r.width * (0.6 + 0.16 * Math.sin(t * 0.35)), r.height * (0.52 + 0.08 * Math.sin(t * 0.7)));
+    requestAnimationFrame(drift);
+  }
+  if (!reduce) requestAnimationFrame(drift);
+
+  // Condition viewer.
+  var imgs = document.querySelectorAll("#viewer img");
+  var buttons = document.querySelectorAll(".seg button");
+  var current = 0, timer = null;
+  function show(i) {
+    current = i;
+    imgs.forEach(function (img, k) { img.classList.toggle("on", k === i); });
+    buttons.forEach(function (b, k) { b.setAttribute("aria-pressed", k === i ? "true" : "false"); });
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () { clearInterval(timer); timer = null; show(+b.dataset.i); });
+  });
+  if (!reduce && "IntersectionObserver" in window) {
+    new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting && timer === null && !entry.target.dataset.stopped) {
+          timer = setInterval(function () { show((current + 1) % imgs.length); }, 3500);
+        } else if (!entry.isIntersecting && timer !== null) {
+          clearInterval(timer); timer = null;
+        }
+      });
+    }, { threshold: 0.5 }).observe(document.getElementById("viewer"));
+    buttons.forEach(function (b) { b.addEventListener("click", function () { document.getElementById("viewer").dataset.stopped = "1"; }); });
+  }
+
+  // Citation.
+  document.getElementById("copy").addEventListener("click", function () {
+    var btn = this, text = document.getElementById("bibtex").innerText;
+    try {
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = "Copied";
+        setTimeout(function () { btn.textContent = "Copy"; }, 1600);
+      });
+    } catch (e) { /* clipboard unavailable */ }
+  });
+})();
+</script>
+</body>
+</html>
