@@ -63,7 +63,7 @@ def main() -> None:
                 "category_id": category_ids[obj["label"]],
                 "bbox": [x0, y0, width, height],
                 "area": width * height,
-                "iscrowd": 0,
+                "iscrowd": int(bool(obj.get("group"))),  # one box around several objects, e.g. a full bike rack
                 "track_id": obj["id"],
                 "parked": obj.get("parked", False),
                 "truncation": obj.get("truncation"),

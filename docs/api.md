@@ -147,7 +147,11 @@ pose is rejected.
 | Method | |
 |---|---|
 | `console(command)` | Runs a console command, e.g. `console("r.ScreenPercentage 100")` |
-| `pause(paused=True)`, `set_time_dilation(value)` | Simulation control |
+| `readiness(radius=25000, near_radius=8000)` | Loading state of the current view: `missing_total` (agents in view not spawned yet, by kind in `missing`), `near_actors_pending`, `streaming_complete`, `shaders_remaining` |
+| `wait_until_settled(timeout=30, min_seconds=0)` | Blocks until no agent in view is still loading and at least `min_seconds` have passed; returns the seconds waited |
+| `set_actor_spawn_budget(seconds)` | Per-frame time the simulator may spend spawning agent actors; `0.05` makes agents appear within a few frames |
+| `stream_site(location, radius, slot=0)`, `site_ready(slot=0)` | Keeps everything within `radius` cm loaded. Slot 0 is the current site, slot 1 can preload the next; `radius=0` releases a slot. |
+| `pause(paused=True)`, `set_time_dilation(value)` | Whole-game pause (the camera cannot move while paused) and time scaling |
 | `start_auto(num_poses, shots_per_pose)`, `stop_auto()` | The built-in capture loop |
 
 ## Wire protocol

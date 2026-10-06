@@ -82,7 +82,7 @@ def main() -> None:
 - Labels: `labels/NNNNNN.json` (format: https://github.com/mkturkcan/boundless#annotations). Per object: class, source, asset, parked
   flag, 3D box, 8 corners in world / OpenCV camera / pixels, 2D boxes (full, clipped, visible part), truncation,
   depth-tested visible fraction, occlusion level. Per frame: intrinsics K, world-to-camera extrinsics, camera pose,
-  lighting/weather/density, and (collect_conditions.py) the drawn `condition`.
+  lighting/weather/density, and the drawn `condition`.
 - `manifest.jsonl`: one line per frame. `coco.json`: COCO export (objects >= {args.min_visible:.0%} visible).
 - `stats.json`: the numbers below. `preview.jpg`: 16 random frames with boxes (red = parked).
 

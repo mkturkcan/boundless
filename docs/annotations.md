@@ -29,6 +29,7 @@ A dataset folder contains:
 | `id` | Stable while the agent or object exists, usable for tracking across consecutive frames |
 | `label` | `car`, `van`, `truck`, `bus`, `trailer`, `pedestrian`, `bicycle`, `motorcycle` |
 | `parked` | `true` for parked vehicles |
+| `group` | `true` when one box covers several objects (a full bike rack); exported as `iscrowd` in COCO and skipped in YOLO |
 | `source`, `asset` | Where the object comes from (traffic, parked, crowd or placed object) and its mesh |
 | `distance_m` | Distance from the camera to the box center |
 | `center`, `extent`, `rotation`, `quat_xyzw` | Oriented 3D box: center (world, cm), half size along the box's forward/right/up axes (cm), orientation |

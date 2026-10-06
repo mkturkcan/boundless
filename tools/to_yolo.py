@@ -59,7 +59,7 @@ def main() -> None:
         lines = []
         for obj in filter_objects(frame, min_visible=args.min_visible, max_truncation=args.max_truncation, labels=classes):
             box = obj.get("bbox_2d_visible") if args.visible_box else obj["bbox_2d"]
-            if not box:
+            if not box or obj.get("group"):  # group boxes (several objects in one box) have no YOLO equivalent
                 continue
             x0, y0, x1, y1 = box
             if x1 - x0 < 2 or y1 - y0 < 2:

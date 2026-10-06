@@ -1,14 +1,18 @@
-"""Unattended, resumable dataset generation with varied time of day, weather and traffic.
+"""Unattended, resumable dataset generation with varied viewpoints, time of day, weather and traffic.
 
-For every infrastructure camera (an intersection-heavy mix of pole, mid-block, facade and freeway cameras):
+The city is visited as a tour of *sites* (an intersection and its surroundings). At every site:
 
-  * ``--segments-per-pose`` shot groups. Each group draws a new condition (sunny, low sun, overcast, rain, snow,
-    dusk, night, night rain; see ``CONDITIONS``), respawns moving traffic, parked vehicles and pedestrians at new
-    densities, and waits for them to initialize;
-  * ``--shots-per-segment`` shots per group while the traffic moves on.
+  * the area is loaded once (the next site is preloaded in the background), and up to ``--views-per-site`` distinct
+    infrastructure cameras are placed: intersection and mid-block poles, building facades;
+  * ``--rounds-per-site`` rounds are taken. Every round draws a new condition (sunny, low sun, overcast, rain, snow,
+    dusk, night, night rain; see ``CONDITIONS``), re-spawns moving traffic, parked vehicles and pedestrians at new
+    densities, waits for them to settle, and captures every camera once.
 
-The simulator is launched (and relaunched after a crash) when ``--launch`` is given, and a run can be interrupted and
-resumed at any time. The drawn condition is stored in every label file under ``"condition"``.
+A camera view is therefore only ever repeated after all agents have been re-spawned. After a re-spawn the simulation
+runs for ``--respawn-wait`` seconds (agents fade in, overlapping vehicles resolve, traffic starts to flow), and after
+every camera move for ``--view-settle-seconds`` (nearby agents switch to their full representation). The simulator is launched (and relaunched after a
+crash) when ``--launch`` is given; a run can be stopped at any time and resumes where it left off. The drawn condition
+is stored in every label file under ``"condition"``.
 
     python examples/collect_dataset.py --out datasets/boundless_bigcity_4k --target 10000 --launch C:/Boundless/Boundless.exe
 
@@ -75,7 +79,15 @@ def tint(rng: random.Random, base, jitter: float):
     return [max(0.0, b + rng.uniform(-jitter, jitter)) for b in base]
 
 
-def day_lighting(rng: random.Random, **override) -> dict:
+def street_azimuth(rng: random.Random, street_yaw: float | None) -> float:
+    """Sun azimuth along one of the site's street axes (+-20 deg): in a dense city that is when sunlight reaches the
+    street. Without a street direction, any azimuth."""
+    if street_yaw is None:
+        return U(rng, 0, 360)
+    return (street_yaw + rng.choice([0.0, 90.0, 180.0, 270.0]) + U(rng, -20, 20)) % 360.0
+
+
+def day_lighting(rng: random.Random, street_yaw: float | None = None, **override) -> dict:
     elevation = U(rng, 12, 85)
     lighting = dict(
         night=False, sun_elevation=elevation, sun_azimuth=U(rng, 0, 360),
@@ -101,7 +113,7 @@ def night_lighting(rng: random.Random, **override) -> dict:
     return lighting
 
 
-def sample_condition(rng: random.Random, name: str | None = None) -> dict:
+def sample_condition(rng: random.Random, name: str | None = None, street_yaw: float | None = None) -> dict:
     if name is None:
         pick = rng.random()
         for name, probability in CONDITIONS:
@@ -110,10 +122,11 @@ def sample_condition(rng: random.Random, name: str | None = None) -> dict:
                 break
     weather = dict(rain=0.0, snow=0.0, snow_cover=0.0, fog=0.0)
     if name == "sunny":
-        lighting = day_lighting(rng)
+        # Sun along a street axis and fairly high, so the street itself is sunlit.
+        lighting = day_lighting(rng, sun_elevation=U(rng, 30, 80), sun_azimuth=street_azimuth(rng, street_yaw))
         weather["fog"] = U(rng, 0.0, 0.15)
     elif name == "low_sun":
-        lighting = day_lighting(rng, sun_elevation=U(rng, 2, 12), temperature=U(rng, 2800, 4500),
+        lighting = day_lighting(rng, sun_elevation=U(rng, 2, 12), sun_azimuth=street_azimuth(rng, street_yaw), temperature=U(rng, 2800, 4500),
                                 sun_intensity_scale=U(rng, 2.0, 7.0), sky_intensity_scale=U(rng, 0.5, 1.0),
                                 sky_dome_tint=tint(rng, [1.0, 0.85, 0.7], 0.08))
         weather["fog"] = U(rng, 0.0, 0.3)
@@ -128,7 +141,7 @@ def sample_condition(rng: random.Random, name: str | None = None) -> dict:
                                 sky_dome_intensity=U(rng, 0.3, 0.65), sky_dome_tint=tint(rng, [0.52, 0.57, 0.62], 0.05),
                                 sky_sun_intensity=0.0, temperature=U(rng, 6200, 8000), exposure_bias=U(rng, -0.7, 0.2),
                                 saturation=U(rng, 0.7, 0.9), contrast=U(rng, 0.9, 1.0))
-        weather.update(rain=log_uniform(rng, 0.08, 1.0), fog=U(rng, 0.15, 0.7))
+        weather.update(rain=log_uniform(rng, 0.08, 0.6), fog=U(rng, 0.15, 0.7))
     elif name == "snow":
         lighting = day_lighting(rng, sun_intensity_scale=U(rng, 0.0, 0.5), sky_intensity_scale=U(rng, 0.9, 1.4),
                                 sky_dome_intensity=U(rng, 0.5, 0.9), sky_dome_tint=tint(rng, [0.68, 0.72, 0.78], 0.05),
@@ -166,13 +179,13 @@ def respawn_traffic(client: Client, rng: random.Random, args) -> dict:
     return density
 
 
-def tag_label(shot, condition: dict, density: dict, segment: int) -> None:
+def tag_label(shot, condition: dict, density: dict, site: str, round_index: int) -> None:
     """Store the drawn condition in the frame's label file."""
     if not shot.label_path:
         return
     path = Path(shot.label_path)
     label = json.loads(path.read_text(encoding="utf-8"))
-    label["condition"] = dict(name=condition["name"], weather=condition["weather"], segment=segment, density=density)
+    label["condition"] = dict(name=condition["name"], weather=condition["weather"], site=site, round=round_index, density=density)
     path.write_text(json.dumps(label), encoding="utf-8")
 
 
@@ -210,6 +223,19 @@ class Simulator:
             except subprocess.TimeoutExpired:
                 self.process.kill()
         self.process = None
+        # The launcher may leave the game process behind; end whatever still listens on the API port.
+        for pid in listening_pids(self.args.port):
+            log(f"ending leftover simulator process {pid}")
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+        time.sleep(2)
+
+
+def listening_pids(port: int) -> set[int]:
+    if sys.platform != "win32":
+        return set()
+    lines = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, text=True).stdout.splitlines()
+    return {int(p[-1]) for p in (line.split() for line in lines)
+            if len(p) >= 5 and p[1].endswith(f":{port}") and p[3] == "LISTENING" and p[-1] != "0"}
 
 
 def connect(args, simulator: Simulator | None) -> Client:
@@ -267,6 +293,16 @@ def capture_options(args, **override) -> dict:
 
 def count_frames(out: Path) -> int:
     return len(list((out / "rgb").glob("*.jpg"))) if (out / "rgb").exists() else 0
+
+
+def reject_frame(out: Path, frame: str, pair) -> None:
+    """Move a frame to rejected/ (kept for inspection) together with the reason."""
+    target = out / "rejected"
+    target.mkdir(exist_ok=True)
+    for path in (out / "rgb" / f"{frame}.jpg", out / "labels" / f"{frame}.json", out / "depth" / f"{frame}.npy"):
+        if path.exists():
+            path.replace(target / path.name)
+    (target / f"{frame}.reason.json").write_text(json.dumps({"overlap": [pair[0]["id"], pair[1]["id"]]}), encoding="utf-8")
 
 
 def discard_frame(out: Path, frame: str) -> None:
@@ -334,7 +370,7 @@ def run_gallery(client: Client, args) -> None:
             except BoundlessError as error:
                 log(f"  skip {pose.id}: {str(error).split(': ', 1)[-1]}")
                 continue
-            tag_label(shot, condition, density, 0)
+            tag_label(shot, condition, density, pose.id, 0)
             made += 1
             tiles.append((f"{name}  {shot.raw.get('num_objects', 0)} objects", shot.image_path))
             log(f"{name}: {shot.image_path}")
@@ -351,6 +387,77 @@ def run_gallery(client: Client, args) -> None:
 
 # --------------------------------------------------------------------------------------------------------------------
 
+def yaw_difference(a: float, b: float) -> float:
+    return abs((a - b + 180.0) % 360.0 - 180.0)
+
+
+def site_views(client: Client, center, args, seed: int) -> list[Pose]:
+    """Distinct, geometry-checked camera poses around a site (different mount points or directions)."""
+    candidates = client.sample_camera_poses(n=args.site_candidates, seed=seed, kinds=args.kinds.split(","),
+                                            near=center, radius=args.site_view_radius_m * 100.0, rig=RIG)
+    views: list[Pose] = []
+    for candidate in candidates:
+        try:
+            checked = client.validate_pose(candidate)
+        except BoundlessError:
+            continue
+        if not checked.get("valid"):
+            continue
+        pose = Pose.from_dict(checked["pose"])
+        if not -45.0 <= pose.rotation[0] <= 5.0:
+            continue
+        if any(math.dist(pose.location, other.location) < 600.0 and yaw_difference(pose.rotation[1], other.rotation[1]) < 40.0
+               for other in views):
+            continue
+        views.append(pose)
+        if len(views) >= args.views_per_site:
+            break
+    return views
+
+
+def footprints_overlap(a, b, min_depth_cm: float) -> bool:
+    """Separating-axis test on two oriented rectangles (lists of 4 XY corners): True if they interpenetrate by more
+    than min_depth_cm along every axis."""
+    for rect in (a, b):
+        for k in range(4):
+            ex, ey = rect[(k + 1) % 4][0] - rect[k][0], rect[(k + 1) % 4][1] - rect[k][1]
+            length = math.hypot(ex, ey) or 1.0
+            nx, ny = -ey / length, ex / length
+            pa = [x * nx + y * ny for x, y in a]
+            pb = [x * nx + y * ny for x, y in b]
+            if min(max(pa), max(pb)) - max(min(pa), min(pb)) < min_depth_cm:
+                return False
+    return True
+
+
+def overlapping_vehicles(label_path: str, min_depth_cm: float = 50.0):
+    """The first pair of vehicles within 150 m of the camera that interpenetrate (spawned into each other and still
+    resolving), or None. Trailers are skipped: they legitimately touch their truck."""
+    if not label_path:
+        return None
+    objects = json.loads(Path(label_path).read_text(encoding="utf-8")).get("objects", [])
+    vehicles = [o for o in objects if o["label"] not in ("pedestrian", "trailer") and o.get("distance_m", 1e9) < 150.0
+                and o.get("visible_fraction", 0) > 0.1]
+    rects = [[(c[0], c[1]) for c in o["corners_world"][:4]] for o in vehicles]
+    heights = [(min(c[2] for c in o["corners_world"]), max(c[2] for c in o["corners_world"])) for o in vehicles]
+    for i in range(len(rects)):
+        for j in range(i + 1, len(rects)):
+            # Same level (not a car on an overpass above another) and footprints interpenetrating.
+            vertical = min(heights[i][1], heights[j][1]) - max(heights[i][0], heights[j][0])
+            if vertical > min_depth_cm and footprints_overlap(rects[i], rects[j], min_depth_cm):
+                return vehicles[i], vehicles[j]
+    return None
+
+
+def wait_for_site(client: Client, slot: int, timeout: float) -> bool:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if client.site_ready(slot):
+            return True
+        time.sleep(0.5)
+    return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--out", required=True)
@@ -358,12 +465,23 @@ def main() -> None:
     parser.add_argument("--map", default="Big City", help='"Big City", "Small City" or a map path')
     parser.add_argument("--resolution", default="3840x2160")
     parser.add_argument("--kinds", default="intersection,midblock,facade,freeway")
-    parser.add_argument("--candidates", type=int, default=6000, help="camera poses drawn from the road network per route")
-    parser.add_argument("--route-poses", type=int, default=1500, help="city-wide subset visited along a short tour")
-    parser.add_argument("--segments-per-pose", type=int, default=3, help="condition + traffic respawn groups per camera")
-    parser.add_argument("--shots-per-segment", type=int, default=4)
-    parser.add_argument("--shot-interval", type=float, default=0.6, help="seconds of traffic motion between shots of a group")
-    parser.add_argument("--respawn-wait", type=float, default=2.5, help="seconds for respawned agents to initialize")
+    parser.add_argument("--candidates", type=int, default=6000, help="intersection poses drawn to pick sites from")
+    parser.add_argument("--route-sites", type=int, default=1200, help="city-wide subset of sites visited along a short tour")
+    parser.add_argument("--views-per-site", type=int, default=16)
+    parser.add_argument("--min-views", type=int, default=3, help="skip sites with fewer usable cameras")
+    parser.add_argument("--rounds-per-site", type=int, default=3, help="condition + re-spawn rounds per site")
+    parser.add_argument("--site-candidates", type=int, default=120)
+    parser.add_argument("--site-view-radius-m", type=float, default=140.0, help="cameras are placed within this distance of the site")
+    parser.add_argument("--site-stream-radius-m", type=float, default=200.0, help="area kept loaded around a site")
+    parser.add_argument("--site-stream-timeout", type=float, default=240.0)
+    parser.add_argument("--respawn-wait", type=float, default=6.0,
+                        help="minimum seconds after a re-spawn (vehicles spawned into each other resolve); capturing also waits until "
+                             "every agent in view has loaded")
+    parser.add_argument("--view-settle-frames", type=int, default=4,
+                        help="extra frames rendered before the shot; the readiness wait already holds the camera still for ~1 s")
+    parser.add_argument("--settle-timeout", type=float, default=8.0, help="maximum seconds to wait for agents in view to load")
+    parser.add_argument("--actor-spawn-budget", type=float, default=0.05,
+                        help="seconds per frame the simulator may spend spawning agents (gameplay default 0.0015)")
     parser.add_argument("--traffic-range", type=float, nargs=2, default=[0.4, 1.6])
     parser.add_argument("--parked-range", type=float, nargs=2, default=[0.3, 1.2])
     parser.add_argument("--crowd-range", type=float, nargs=2, default=[0.3, 1.6])
@@ -380,8 +498,12 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=2000)
     parser.add_argument("--call-timeout", type=float, default=600.0)
     parser.add_argument("--launch", default=None, help="simulator executable; enables automatic (re)launch")
+    parser.add_argument("--restart-every-sites", type=int, default=3,
+                        help="with --launch: restart the simulator after this many sites to keep frame times steady")
     parser.add_argument("--project", default=None, help="only for editor builds: the .uproject passed to the editor")
     args = parser.parse_args()
+    args.route_poses = args.route_sites
+    args.segments_per_pose = 1
 
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
@@ -396,18 +518,27 @@ def main() -> None:
         return
 
     state_path = out / "collection_state.json"
-    state = json.loads(state_path.read_text()) if state_path.exists() else {"pose_cursor": 0, "accepted": 0, "rejected": 0, "route_seed": args.seed}
-    rng = random.Random(args.seed + state["accepted"] * 7919)
+    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    state = {"site_cursor": 0, "sites_done": 0, "sites_skipped": 0, "route_seed": args.seed, **state}
+    rng = random.Random(args.seed + state["sites_done"] * 7919 + state["site_cursor"])
     started = time.time()
     client = None
-    route: list[Pose] = []
+    sites: list[Pose] = []
     width, height = (int(v) for v in args.resolution.lower().split("x"))
     frames = count_frames(out)
     frames_at_start = frames
-    options_first = capture_options(args, settle_seconds=args.respawn_wait + 1.0, settle_frames=40)
-    options_group = capture_options(args, settle_seconds=args.respawn_wait + 0.8, settle_frames=30, streaming_timeout_seconds=10.0)
-    options_next = capture_options(args, settle_seconds=args.shot_interval, settle_frames=4, freeze_frames=1, streaming_timeout_seconds=5.0)
+    stream_radius = args.site_stream_radius_m * 100.0
+    # After every camera move the collector waits until no agent in view is still loading in (client.readiness), then
+    # renders a few more frames for lighting and anti-aliasing history.
+    view_options = capture_options(args, settle_seconds=0.0, settle_frames=args.view_settle_frames,
+                                   freeze_frames=0, streaming_timeout_seconds=5.0)
     size_checked = False
+    sites_since_launch = 0
+
+    def anchors(seed: int) -> list[Pose]:
+        candidates = client.sample_camera_poses(n=args.candidates, seed=seed, kinds=["intersection"], rig=RIG)
+        subset = random.Random(seed).sample(candidates, min(args.route_sites, len(candidates)))
+        return order_by_route(subset)
 
     while frames < args.target:
         if args.max_hours and time.time() - started > args.max_hours * 3600:
@@ -418,71 +549,104 @@ def main() -> None:
                 frames = compact_dataset(out)
                 client = connect(args, simulator)
                 prepare_session(client, args)
+                client.set_actor_spawn_budget(args.actor_spawn_budget)
                 size_checked = False
-                route = build_route(client, args, state["route_seed"])
-                log(f"{len(route)} camera poses on the route, resuming at {state['pose_cursor']}")
-            if state["pose_cursor"] >= len(route):
-                state["pose_cursor"] = 0
+                sites = anchors(state["route_seed"])
+                log(f"{len(sites)} sites on the route, resuming at {state['site_cursor']}")
+                sites_since_launch = 0
+            elif simulator is not None and args.restart_every_sites and sites_since_launch >= args.restart_every_sites:
+                log(f"restarting the simulator after {sites_since_launch} sites")
+                client.close()
+                client = None
+                simulator.stop()
+                continue
+            if state["site_cursor"] >= len(sites):
+                state["site_cursor"] = 0
                 state["route_seed"] += 1
-                route = build_route(client, args, state["route_seed"])
-            pose = route[state["pose_cursor"]]
-            state["pose_cursor"] += 1
-
+                sites = anchors(state["route_seed"])
+            index = state["site_cursor"]
+            slot = index % 2
+            anchor = sites[index]
             t0 = time.time()
-            condition = sample_condition(rng)
-            apply_condition(client, condition)
-            density = respawn_traffic(client, rng, args)
-            try:
-                first = client.capture(pose=pose, validate_pose=True, output_dir=str(out), **options_first)
-            except BoundlessError as error:
-                state["rejected"] += 1
-                log(f"  skip {pose.id}: {str(error).split(': ', 1)[-1]}")
-                continue
-            refined = first.pose or pose
-            if not size_checked:
-                from PIL import Image
-                size = Image.open(first.image_path).size
-                if size != (width, height):
-                    discard_frame(out, first.frame)
-                    log(f"  image is {size[0]}x{size[1]}, not {width}x{height}; resizing the window again")
-                    prepare_session(client, args)
-                    continue
-                size_checked = True
-            if not -45.0 <= refined.rotation[0] <= 5.0:
-                discard_frame(out, first.frame)
-                state["rejected"] += 1
-                log(f"  skip {refined.id}: pitch {refined.rotation[0]:.0f} deg after mounting")
-                continue
-            state["accepted"] += 1
-            frames += 1
-            tag_label(first, condition, density, 0)
-            names = [condition["name"]]
-            shots = 1
+
+            # Load this site and preload the next one while it is being captured.
+            client.stream_site(anchor.location, stream_radius, slot=slot)
+            if index + 1 < len(sites):
+                client.stream_site(sites[index + 1].location, stream_radius, slot=1 - slot)
+            client.set_camera(anchor)
+            if not wait_for_site(client, slot, args.site_stream_timeout):
+                log(f"  site {anchor.id} still loading after {args.site_stream_timeout:.0f}s; continuing")
+            views = site_views(client, anchor.location, args, seed=state["route_seed"] * 100003 + index)
             t1 = time.time()
-            for segment in range(args.segments_per_pose):
-                if segment > 0:
+            if len(views) < args.min_views:
+                log(f"  skip site {anchor.id}: {len(views)} usable cameras")
+                state["sites_skipped"] += 1
+                state["site_cursor"] += 1
+                client.stream_site(anchor.location, 0, slot=slot)
+                continue
+
+            names = []
+            shots = 0
+            skipped_overlap = 0
+            timing = {"respawn": 0.0, "settle": 0.0, "capture": 0.0}
+            for round_index in range(args.rounds_per_site):
+                if frames >= args.target or not views:
+                    break
+                condition = sample_condition(rng, street_yaw=anchor.rotation[1])
+                names.append(condition["name"])
+                apply_condition(client, condition)
+                tr = time.time()
+                density = respawn_traffic(client, rng, args)
+                client.wait_until_settled(timeout=args.settle_timeout, min_seconds=args.respawn_wait)
+                timing["respawn"] += time.time() - tr
+                order = list(views)
+                rng.shuffle(order)
+                for view in order:
                     if frames >= args.target:
                         break
-                    condition = sample_condition(rng)
-                    names.append(condition["name"])
-                    apply_condition(client, condition)
-                    density = respawn_traffic(client, rng, args)
-                    shot = client.capture(pose=refined, output_dir=str(out), **options_group)
-                    tag_label(shot, condition, density, segment)
+                    tv = time.time()
+                    client.set_camera(view)
+                    client.wait_until_settled(timeout=args.settle_timeout)
+                    timing["settle"] += time.time() - tv
+                    tv = time.time()
+                    try:
+                        shot = client.capture(pose=view, validate_pose=(round_index == 0), output_dir=str(out), **view_options)
+                    except BoundlessError as error:   # failed the image-based checks (mostly sky, obstruction)
+                        views.remove(view)
+                        log(f"  drop {view.id}: {str(error).split(': ', 1)[-1]}")
+                        continue
+                    finally:
+                        timing["capture"] += time.time() - tv
+                    if not size_checked:
+                        from PIL import Image
+                        size = Image.open(shot.image_path).size
+                        if size != (width, height):
+                            discard_frame(out, shot.frame)
+                            log(f"  image is {size[0]}x{size[1]}, not {width}x{height}; resizing the window again")
+                            prepare_session(client, args)
+                            continue
+                        size_checked = True
+                    pair = overlapping_vehicles(shot.label_path)
+                    if pair:
+                        # Vehicles spawned into each other are still resolving (rendered with a dissolve effect).
+                        a, b = pair
+                        log(f"    skip frame: {a['label']}/{a['source']}/{a['asset']} overlaps {b['label']}/{b['source']}/{b['asset']} "
+                            f"at {a['distance_m']:.0f} m")
+                        reject_frame(out, shot.frame, pair)
+                        skipped_overlap += 1
+                        continue
+                    tag_label(shot, condition, density, anchor.id, round_index)
                     frames += 1
                     shots += 1
-                for _ in range(args.shots_per_segment - 1):
-                    if frames >= args.target:
-                        break
-                    shot = client.capture(pose=refined, output_dir=str(out), **options_next)
-                    tag_label(shot, condition, density, segment)
-                    frames += 1
-                    shots += 1
-            t2 = time.time()
+            client.stream_site(anchor.location, 0, slot=slot)
+            state["sites_done"] += 1
+            state["site_cursor"] += 1
+            sites_since_launch += 1
             elapsed = time.time() - started
-            log(f"[{frames}/{args.target}] {refined.kind:>17} {first.raw.get('num_objects', 0):3d} objects "
-                f"{'/'.join(names):>28} | first {t1 - t0:4.1f}s, then {(t2 - t1) / max(shots - 1, 1):4.2f}s/shot | "
-                f"{(frames - frames_at_start) / max(elapsed, 1) * 3600:.0f} img/h")
+            log(f"[{frames}/{args.target}] site {anchor.id}: {len(views)} cameras x {len(names)} rounds "
+                f"({'/'.join(names)}) = {shots} frames ({skipped_overlap} skipped: overlapping vehicles) | load {t1 - t0:4.1f}s, total {time.time() - t0:5.1f}s | "
+                f"{(frames - frames_at_start) / max(elapsed, 1) * 3600:.0f} img/h | respawn {timing['respawn']:.0f}s, "
+                f"settle {timing['settle'] / max(shots, 1):.2f}s/frame, capture {timing['capture'] / max(shots, 1):.2f}s/frame")
         except (ConnectionError, OSError, TimeoutError) as error:
             log(f"connection problem: {error!r}; restarting")
             if client is not None:

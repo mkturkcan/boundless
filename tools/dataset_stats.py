@@ -46,7 +46,7 @@ def main() -> None:
         camera = frame["camera"]
         poses.add(camera.get("pose_id"))
         kinds[camera.get("pose_kind", "?")] += 1
-        # Frames from collect_conditions.py carry the drawn condition; older ones are classified from the lighting.
+        # Frames from collect_dataset.py carry the drawn condition; others are classified from the lighting.
         condition = frame.get("condition", {}).get("name")
         regimes[condition or regime(frame.get("scene", {}).get("lighting", {}))] += 1
         objects = frame.get("objects", [])

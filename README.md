@@ -12,6 +12,8 @@
 
 Mehmet Kerem Turkcan, Yuyang Li, Chengbo Zang, Javad Ghaderi, Gil Zussman, Zoran Kostic
 
+[AIDL Lab](https://www.aidl.ee.columbia.edu/), Columbia University
+
 <img src="assets/hero.jpg" width="100%" alt="A night intersection in Boundless with 3D bounding boxes on every vehicle and pedestrian">
 
 </div>
@@ -120,13 +122,17 @@ with Client("127.0.0.1", 2000) as client:
 
 ## Generating a dataset
 
-`examples/collect_dataset.py` is the unattended, resumable generator used for the released datasets. It launches the
-simulator, follows a city-wide tour of infrastructure cameras and takes several shot groups per camera; every group
-draws a new condition and re-spawns traffic, parked vehicles and pedestrians at new densities.
+`examples/collect_dataset.py` is the unattended, resumable generator used for the released datasets. It visits the
+city as a tour of *sites* (an intersection and its surroundings). At every site it places up to sixteen distinct
+infrastructure cameras and takes several rounds; every round draws a new condition, re-spawns traffic, parked vehicles
+and pedestrians at new densities, and captures each camera once. A view is therefore never repeated without a full
+re-spawn. Before every capture the generator waits until all agents in view have loaded, and the next site is preloaded
+while the current one is captured.
 
 ```bash
-# 10,000 frames of Big City at 3840x2160 (about 1,000-1,300 frames per hour on an RTX 4080)
+# The full Boundless Big City 4K dataset: 10,000 frames at 3840x2160 (about 1,500 frames per hour on an RTX 4080)
 python examples/collect_dataset.py --out C:/data/boundless_bigcity_4k --target 10000 --launch C:/Boundless/Boundless.exe
+python tools/finalize_dataset.py C:/data/boundless_bigcity_4k --title "Boundless Big City 4K"
 
 # Preview the conditions first: two frames of each plus a contact sheet (gallery.jpg)
 python examples/collect_dataset.py --out C:/data/preview --gallery 2 --launch C:/Boundless/Boundless.exe
@@ -209,19 +215,31 @@ See [docs/annotations.md](docs/annotations.md) for the full format, coordinate c
 | `set_camera(pose)`, `get_camera()`, `validate_pose(pose)` | Camera placement, intrinsics/extrinsics, geometry checks |
 | `capture(pose, validate_pose, output_dir, **options)` | Renders one frame with labels; returns paths, labels and the final pose |
 | `get_annotations(**options)` | Labels of the current view without rendering an image |
+| `readiness()`, `wait_until_settled(timeout, min_seconds)` | Whether all agents in view have loaded; blocks until they have |
+| `set_actor_spawn_budget(seconds)` | Per-frame time for spawning agents, so they appear within a few frames after a re-spawn or camera move |
+| `stream_site(location, radius, slot)`, `site_ready(slot)` | Keeps an area loaded (and preloads the next one) so cameras can move within it without waiting |
 | `console(command)`, `pause()`, `quit()` | Engine console, pausing and shutdown |
 
 The complete reference, including capture options and camera rig parameters, is in [docs/api.md](docs/api.md).
 
 ## Datasets
 
-| Dataset | Map | Resolution | Frames | Cameras | Objects | |
-|---|---|---|---|---|---|---|
-| Boundless Big City 4K | Big City | 3840x2160 | 10,000 | 834 | 397,209 | [Hugging Face](https://huggingface.co/datasets/mehmetkeremturkcan/boundless-bigcity-4k) |
-| Boundless Small City | Small City | 1920x1080 | 10,000 | 419 | 326,150 | [Hugging Face](https://huggingface.co/datasets/mehmetkeremturkcan/boundless-smallcity) |
+| Dataset | Description | |
+|---|---|---|
+| **Boundless Big City 4K** | 10,000 frames at 3840x2160 with 2D and 3D boxes | [Hugging Face](https://huggingface.co/datasets/mehmetkeremturkcan/boundless-bigcity-4k) |
+| **Boundless I2X** | Top-down intersection views in the [Constellation](https://huggingface.co/datasets/mehmetkeremturkcan/constellation_urban_intersection_dataset) format | [Hugging Face](https://huggingface.co/datasets/mehmetkeremturkcan/boundless-i2x) |
 
-Frames from the same camera are correlated (same viewpoint under different conditions and traffic); split datasets by
-`camera.pose_id`, as `tools/to_yolo.py` does.
+**Boundless Big City 4K** was generated with the first command in [Generating a dataset](#generating-a-dataset).
+
+| | |
+|---|---|
+| Frames | 10,000 at 3840x2160 |
+| Sites / cameras | 211 sites / 3,332 camera poses |
+| Objects | 467,619 (47 per frame) |
+| Classes | car 257,972 · pedestrian 131,025 · van 43,034 · truck 28,565 · bicycle 5,487 · bus 1,536 |
+| Parked (vehicles and bicycles) | 210,762 |
+| Conditions | sunny 2,845 · rain 1,540 · night 1,432 · overcast 1,324 · low sun 1,202 · snow 636 · night rain 529 · dusk 492 |
+| Box heights | < 32 px 120,585 · 32-96 px 187,240 · > 96 px 159,794 |
 
 ## Citation
 

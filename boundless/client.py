@@ -354,4 +354,46 @@ class Client:
         self.call("set_time_dilation", value=value)
 
     def pause(self, paused: bool = True) -> None:
+        """Pause the whole game (the camera cannot move while paused)."""
         self.call("pause", paused=paused)
+
+    def stream_site(self, location: Sequence[float], radius: float, slot: int = 0) -> bool:
+        """Keep everything within ``radius`` cm of ``location`` loaded (``radius=0`` releases it). Slot 0 is the current
+        site, slot 1 can preload the next one. Returns whether the area is fully loaded."""
+        return self.call("stream_site", location=list(location), radius=radius, slot=slot)["ready"]
+
+    def readiness(self, radius: float = 25000.0, near_radius: float = 8000.0) -> Dict[str, Any]:
+        """Whether the current view has finished loading. ``missing_total`` counts agents within ``radius`` cm of the
+        camera that should be on screen but are not spawned yet (``missing`` by kind); ``near_actors_pending`` counts
+        agents within ``near_radius`` still waiting for their full actor. Also ``streaming_complete`` and
+        ``shaders_remaining``."""
+        return self.call("readiness", radius=radius, near_radius=near_radius)
+
+    def wait_until_settled(self, timeout: float = 30.0, min_seconds: float = 0.0, plateau_polls: int = 4,
+                           poll: float = 0.2) -> float:
+        """Block until the view has finished loading and at least ``min_seconds`` have passed: no nearby agent waiting
+        for its actor, streaming complete, and the number of agents still missing in view no longer decreasing over
+        ``plateau_polls`` consecutive polls (a few agents can stay missing for a while when their spawn is retried).
+        Returns the seconds waited."""
+        start = time.time()
+        history: List[int] = []
+        while time.time() - start < timeout:
+            state = self.readiness()
+            missing = int(state.get("missing_total", 0))
+            history.append(missing)
+            loaded = state.get("near_actors_pending", 0) == 0 and state.get("streaming_complete", True)
+            recent = history[-plateau_polls:]
+            plateau = len(recent) == plateau_polls and (missing == 0 or min(recent) >= recent[0])
+            if loaded and plateau and time.time() - start >= min_seconds:
+                break
+            time.sleep(poll)
+        return time.time() - start
+
+    def set_actor_spawn_budget(self, seconds: float) -> float:
+        """Time per frame the simulator may spend spawning agent actors (vehicles, pedestrians) near the camera.
+        Raising it from the gameplay default makes agents appear within a few frames after a camera move or re-spawn."""
+        return self.call("set_actor_spawn_budget", seconds=seconds)["seconds"]
+
+    def site_ready(self, slot: int = 0) -> bool:
+        """Whether the area requested with ``stream_site`` is fully loaded."""
+        return self.call("stream_site", slot=slot)["ready"]
